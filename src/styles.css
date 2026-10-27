@@ -37,3 +37,30 @@
 .secondary-button:hover{background:#f7f6f8}
 .welcome h1{font-size:clamp(26px,3.7vw,36px)}
 @media(max-width:620px){.welcome h1{font-size:27px}}
+.student-management{display:grid;grid-template-columns:minmax(260px,.8fr) minmax(0,1.4fr);gap:16px;align-items:start}
+.student-search{display:flex;align-items:center;gap:9px;border:1px solid #ded9e3;border-radius:10px;padding:0 11px;color:#817b8a}
+.student-search input{width:100%;min-width:0;border:0;outline:0;padding:12px 0;color:#30263e}
+.student-search input:focus{box-shadow:none}
+.student-count{margin:12px 0 3px}
+.student-list{display:flex;flex-direction:column;max-height:490px;overflow:auto}
+.student-list-item{display:flex;align-items:center;gap:10px;width:100%;padding:11px 2px;text-align:left;border:0;border-bottom:1px solid #f0edf2;background:#fff;color:#30263e}
+.student-list-item.selected{background:#f8f5fa}
+.student-avatar{width:36px;height:36px;flex-shrink:0;display:grid;place-items:center;border-radius:50%;background:#f2edf6;color:#79618a}
+.student-list-copy{display:flex;flex:1;min-width:0;flex-direction:column;gap:4px}
+.student-list-copy strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+.student-list-copy small{color:#837c8c;font-size:11px}
+.student-state{font-size:10px;font-weight:700}
+.student-state.active{color:#347449}
+.student-state.inactive{color:#a44743}
+.student-detail-header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:22px}
+.student-detail-header h3{font:800 19px Manrope,sans-serif;margin:0 0 5px}
+.student-detail-header .eyebrow{margin-bottom:6px}
+.student-details h4{font:700 14px Manrope,sans-serif;margin:0 0 8px}
+.student-enrollment-list{margin-bottom:20px}
+.student-enrollment{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid #f0edf2}
+.student-enrollment>div{display:flex;flex-direction:column;gap:5px}
+.student-enrollment strong{font-size:12px}
+.assign-class-label{display:flex;flex-direction:column;gap:7px;color:#5e5768;font-size:12px;font-weight:700}
+.assign-class-label select{width:100%;border:1px solid #ded9e3;border-radius:9px;background:#fff;padding:11px 12px;color:#30263e;font-size:13px}
+@media(max-width:760px){.student-management{grid-template-columns:1fr}.student-list{max-height:300px}}
+@media(max-width:480px){.student-detail-header{align-items:flex-start;flex-direction:column}.student-detail-header button{width:100%}.student-enrollment{gap:8px}}

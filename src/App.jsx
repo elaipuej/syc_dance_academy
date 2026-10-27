@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from './lib/supabase';
 import sycLogo from './assets/syc-logo.png';
-import { Music2, LogOut, ShieldCheck, Video, CalendarDays, Users, Plus, Upload, Check, X, RefreshCw, Play, Maximize2, Minimize2 } from 'lucide-react';
+import { Music2, LogOut, ShieldCheck, Video, CalendarDays, Users, Plus, Upload, Check, X, RefreshCw, Play, Maximize2, Minimize2, Search, UserRound, UserRoundCheck, UserRoundX } from 'lucide-react';
 
 const WEEKDAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 const emptyClass = { title: '', style: 'Bachata', level: 0, weekday: 1, start_time: '19:00', teacher: '', is_active: true };
@@ -29,6 +29,8 @@ export default function App() {
   const [enrollments, setEnrollments] = useState([]);
   const [videos, setVideos] = useState([]);
   const [users, setUsers] = useState([]);
+  const [studentSearch, setStudentSearch] = useState('');
+  const [selectedStudentId, setSelectedStudentId] = useState('');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const [authMode, setAuthMode] = useState('login');
@@ -44,8 +46,17 @@ export default function App() {
   const loadProfile = useCallback(async (user) => {
     if (!user || !supabase) { setProfile(null); return; }
     const { data, error } = await supabase.from('profiles')
-      .select('id, full_name, phone, role').eq('id', user.id).maybeSingle();
+      .select('id, full_name, phone, role, is_active').eq('id', user.id).maybeSingle();
     if (error) setNotice(messageFrom(error));
+    if (data && !data.is_active) {
+      const { error: signOutError } = await supabase.auth.signOut();
+      setNotice(signOutError
+        ? `Tu cuenta está desactivada. No se pudo cerrar la sesión: ${messageFrom(signOutError)}`
+        : 'Tu cuenta está desactivada. Contacta con la academia si crees que es un error.');
+      setSession(null);
+      setProfile(null);
+      return;
+    }
     setProfile(data || null);
   }, []);
 
@@ -66,7 +77,7 @@ export default function App() {
     if (v.error) setNotice(messageFrom(v.error));
     else setVideos(v.data || []);
     if (isAdmin) {
-      const u = await supabase.from('profiles').select('id, full_name, phone, role').order('full_name');
+      const u = await supabase.from('profiles').select('id, full_name, phone, role, is_active').order('full_name');
       if (u.error) setNotice(messageFrom(u.error));
       else setUsers(u.data || []);
     }
@@ -114,6 +125,18 @@ export default function App() {
     .filter((video) => videoClassFilter === 'all' || video.class_id === videoClassFilter)
     .sort((a, b) => (a.dance_classes?.title || '').localeCompare(b.dance_classes?.title || '', 'es')
       || a.title.localeCompare(b.title, 'es', { numeric: true }));
+  const students = users.filter((user) => user.role === 'student');
+  const filteredStudents = students.filter((student) => {
+    const search = studentSearch.trim().toLocaleLowerCase('es');
+    return !search
+      || student.full_name.toLocaleLowerCase('es').includes(search)
+      || student.phone.toLocaleLowerCase('es').includes(search);
+  });
+  const selectedStudent = students.find((student) => student.id === selectedStudentId) || null;
+  const selectedStudentEnrollments = selectedStudent
+    ? enrollments.filter((enrollment) => enrollment.user_id === selectedStudent.id)
+    : [];
+  const pendingEnrollments = enrollments.filter((enrollment) => enrollment.status === 'pending');
 
   const navigateTo = useCallback((nextTab, classId = null) => {
     const route = { sycApp: true, tab: nextTab, classId };
@@ -216,6 +239,58 @@ export default function App() {
     await loadData();
   }
 
+  async function assignStudentToClass(classId) {
+    if (!selectedStudent || !supabase) return;
+    setBusy(true); setNotice('');
+    const enrollment = selectedStudentEnrollments.find((item) => item.class_id === classId);
+    const result = enrollment
+      ? enrollment.status === 'approved'
+        ? { error: null }
+        : await supabase.from('enrollments').update({ status: 'approved' }).eq('id', enrollment.id)
+      : await supabase.from('enrollments').insert({
+        user_id: selectedStudent.id,
+        class_id: classId,
+        status: 'approved'
+      });
+
+    if (result.error) {
+      setNotice(messageFrom(result.error));
+    } else {
+      setNotice(`Alumno añadido a ${classes.find((danceClass) => danceClass.id === classId)?.title || 'la clase'}.`);
+      await loadData();
+    }
+    setBusy(false);
+  }
+
+  async function removeStudentFromClass(enrollmentId) {
+    if (!supabase) return;
+    setBusy(true); setNotice('');
+    const { error } = await supabase.from('enrollments').delete().eq('id', enrollmentId);
+    if (error) {
+      setNotice(messageFrom(error));
+    } else {
+      setEnrollments((current) => current.filter((enrollment) => enrollment.id !== enrollmentId));
+      setNotice('Alumno desapuntado de la clase.');
+    }
+    setBusy(false);
+  }
+
+  async function setStudentActive(student, isActive) {
+    if (!supabase) return;
+    setBusy(true); setNotice('');
+    const { error } = await supabase.rpc('set_student_active', {
+      target_user_id: student.id,
+      new_is_active: isActive
+    });
+    if (error) {
+      setNotice(messageFrom(error));
+    } else {
+      setUsers((current) => current.map((user) => user.id === student.id ? { ...user, is_active: isActive } : user));
+      setNotice(isActive ? 'Cuenta de alumno activada.' : 'Cuenta de alumno desactivada.');
+    }
+    setBusy(false);
+  }
+
   async function saveClass(event) {
     event.preventDefault();
     const payload = { ...classForm, level: Number(classForm.level), weekday: Number(classForm.weekday) };
@@ -300,6 +375,7 @@ export default function App() {
           {!isAdmin && <button className={tab === 'myClasses' ? 'active' : ''} onClick={() => navigateTo('myClasses')}><CalendarDays size={17} /> Mis clases</button>}
           <button className={tab === 'classes' ? 'active' : ''} onClick={() => navigateTo('classes')}><CalendarDays size={17} /> {isAdmin ? 'Clases' : 'Todas las clases'}</button>
           {isAdmin && <button className={tab === 'videos' ? 'active' : ''} onClick={() => navigateTo('videos')}><Video size={17} /> Vídeos</button>}
+          {isAdmin && <button className={tab === 'students' ? 'active' : ''} onClick={() => navigateTo('students')}><Users size={17} /> Alumnos</button>}
           {isAdmin && <button className={tab === 'admin' ? 'active' : ''} onClick={() => navigateTo('admin')}><ShieldCheck size={17} /> Administración</button>}
         </nav>
 
@@ -359,14 +435,65 @@ export default function App() {
             </article>)}</div>}
         </section>}
 
+        {tab === 'students' && isAdmin && <section>
+          <div className="section-heading"><div><h2>Gestión de alumnos</h2><p>Busca alumnos, gestiona sus clases y controla el acceso a la aplicación.</p></div>
+            <button className="subtle-button" onClick={loadData} disabled={busy}><RefreshCw size={15} /> Actualizar</button>
+          </div>
+          <div className="student-management">
+            <section className="panel student-directory" aria-label="Alumnos">
+              <label className="student-search"><Search size={17} /><input type="search" value={studentSearch} onChange={(event) => setStudentSearch(event.target.value)} placeholder="Buscar por nombre o teléfono" /></label>
+              <p className="muted student-count">{filteredStudents.length} de {students.length} alumnos</p>
+              {filteredStudents.length === 0 ? <p className="muted">No se encontraron alumnos.</p> : <div className="student-list">
+                {filteredStudents.map((student) => <button
+                  type="button"
+                  className={`student-list-item${selectedStudentId === student.id ? ' selected' : ''}`}
+                  key={student.id}
+                  onClick={() => setSelectedStudentId(student.id)}
+                >
+                  <span className="student-avatar"><UserRound size={18} /></span>
+                  <span className="student-list-copy"><strong>{student.full_name || 'Sin nombre'}</strong><small>{student.phone || 'Sin teléfono'}</small></span>
+                  <span className={`student-state ${student.is_active ? 'active' : 'inactive'}`}>{student.is_active ? 'Activo' : 'Inactivo'}</span>
+                </button>)}
+              </div>}
+            </section>
+            <section className="panel student-details" aria-label="Detalle del alumno">
+              {!selectedStudent ? <Empty text="Selecciona un alumno para gestionar su acceso y sus clases." /> : <>
+                <div className="student-detail-header">
+                  <div><p className="eyebrow">ALUMNO/A</p><h3>{selectedStudent.full_name || 'Sin nombre'}</h3><p className="muted">{selectedStudent.phone || 'Sin teléfono'}</p></div>
+                  <button
+                    className={selectedStudent.is_active ? 'secondary-button' : 'primary-button'}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => setStudentActive(selectedStudent, !selectedStudent.is_active)}
+                  >{selectedStudent.is_active ? <><UserRoundX size={16} /> Desactivar</> : <><UserRoundCheck size={16} /> Activar</>}</button>
+                </div>
+                {!selectedStudent.is_active && <div className="notice" role="status">Cuenta desactivada: no podrá acceder a clases, vídeos ni datos de la aplicación.</div>}
+                <h4>Clases del alumno</h4>
+                {selectedStudentEnrollments.length === 0 ? <p className="muted">No está asignado a ninguna clase.</p> : <div className="student-enrollment-list">
+                  {selectedStudentEnrollments.map((enrollment) => <div className="student-enrollment" key={enrollment.id}>
+                    <div><strong>{enrollment.dance_classes?.title || classes.find((danceClass) => danceClass.id === enrollment.class_id)?.title || 'Clase'}</strong><span className={`status-text ${enrollment.status}`}>{enrollment.status === 'approved' ? 'Acceso aprobado' : enrollment.status === 'pending' ? 'Solicitud pendiente' : 'Rechazada'}</span></div>
+                    <button className="reject-button" type="button" disabled={busy} onClick={() => removeStudentFromClass(enrollment.id)} aria-label="Quitar de la clase" title="Quitar de la clase"><X size={16} /></button>
+                  </div>)}
+                </div>}
+                <label className="assign-class-label">Añadir a una clase
+                  <select defaultValue="" disabled={busy} onChange={(event) => { if (event.target.value) assignStudentToClass(event.target.value); event.target.value = ''; }}>
+                    <option value="">Selecciona una clase</option>
+                    {classes.filter((danceClass) => !selectedStudentEnrollments.some((enrollment) => enrollment.class_id === danceClass.id && enrollment.status === 'approved')).map((danceClass) => <option value={danceClass.id} key={danceClass.id}>{danceClass.title} · {WEEKDAYS[danceClass.weekday - 1]} {String(danceClass.start_time).slice(0,5)}</option>)}
+                  </select>
+                </label>
+              </>}
+            </section>
+          </div>
+        </section>}
+
         {tab === 'admin' && isAdmin && <section>
           <div className="section-heading"><div><h2>Administración</h2><p>Gestiona solicitudes, clases y material de la academia.</p></div></div>
           <div className="admin-stats"><div><Users /><span><strong>{users.length}</strong> perfiles</span></div><div><CalendarDays /><span><strong>{classes.length}</strong> clases</span></div><div><Video /><span><strong>{videos.length}</strong> vídeos</span></div></div>
           <div className="admin-grid">
             <div className="panel"><h3>Solicitudes de acceso</h3>
-              {enrollments.length === 0 ? <p className="muted">No hay solicitudes todavía.</p> : <div className="request-list">{enrollments.map(e => <div className="request-row" key={e.id}>
-                <div><strong>{e.profiles?.full_name || 'Alumno/a'}</strong><p>{e.dance_classes?.title || 'Clase'} · {e.dance_classes?.weekday ? WEEKDAYS[e.dance_classes.weekday - 1] : ''} {e.dance_classes?.start_time?.slice(0,5) || ''}</p><span className={`status-text ${e.status}`}>{e.status === 'approved' ? 'Aprobada' : e.status === 'pending' ? 'Pendiente' : 'Rechazada'}</span></div>
-                <div className="row-actions">{e.status !== 'approved' && <button className="approve-button" onClick={() => updateEnrollment(e.id, 'approved')} title="Aprobar"><Check size={16} /></button>}{e.status !== 'rejected' && <button className="reject-button" onClick={() => updateEnrollment(e.id, 'rejected')} title="Rechazar"><X size={16} /></button>}</div>
+              {pendingEnrollments.length === 0 ? <p className="muted">No hay solicitudes pendientes.</p> : <div className="request-list">{pendingEnrollments.map(e => <div className="request-row" key={e.id}>
+                <div><strong>{e.profiles?.full_name || 'Alumno/a'}</strong><p>{e.dance_classes?.title || 'Clase'} · {e.dance_classes?.weekday ? WEEKDAYS[e.dance_classes.weekday - 1] : ''} {e.dance_classes?.start_time?.slice(0,5) || ''}</p></div>
+                <div className="row-actions"><button className="approve-button" disabled={busy} onClick={() => updateEnrollment(e.id, 'approved')} title="Aprobar"><Check size={16} /></button><button className="reject-button" disabled={busy} onClick={() => updateEnrollment(e.id, 'rejected')} title="Rechazar"><X size={16} /></button></div>
               </div>)}</div>}
             </div>
             <div className="panel"><h3>Añadir una clase</h3>
@@ -386,9 +513,6 @@ export default function App() {
                 <label>O archivo de vídeo<input type="file" accept="video/*" onChange={e=>setVideoForm({...videoForm,file:e.target.files?.[0] || null,youtube_url:''})} /></label>
                 <button className="primary-button" type="submit" disabled={busy}><Upload size={16} /> Añadir vídeo</button>
               </form>
-            </div>
-            <div className="panel"><h3>Perfiles y roles</h3><p className="muted">Los roles se asignan deliberadamente desde SQL para evitar que la interfaz permita elevar privilegios por error.</p>
-              <div className="request-list">{users.map(u=><div className="request-row" key={u.id}><div><strong>{u.full_name || 'Sin nombre'}</strong><p>{u.phone || 'Sin teléfono'}</p></div><span className={`status-text ${u.role === 'admin' ? 'approved' : 'pending'}`}>{u.role === 'admin' ? 'Administrador' : 'Alumno'}</span></div>)}</div>
             </div>
           </div>
         </section>}

@@ -102,7 +102,9 @@ No subas `.env.local` al repositorio. La aplicación es cliente y la clave publi
 - El alumno solicita acceso a una o varias clases.
 - La pestaña **Mis clases** muestra las clases aprobadas y las solicitudes pendientes del alumno. Desde cada clase aprobada se accede a sus vídeos; **Todas las clases** conserva el catálogo para explorar y solicitar acceso.
 - En **Todas las clases**, el alumno puede solicitar acceso o cancelar una solicitud pendiente; el acceso a vídeos está en **Mis clases**. Para habilitar la cancelación en una base existente, ejecuta `supabase/enrollment_cancel_policy.sql` en **Supabase → SQL Editor**. Las nuevas instalaciones reciben esta política al ejecutar `supabase/schema.sql`.
-- Un administrador aprueba o rechaza las solicitudes.
+- Un administrador aprueba o rechaza las solicitudes. En **Solicitudes de acceso** solo se muestran solicitudes pendientes; al resolverlas desaparecen de esa lista.
+- Desde la pestaña **Alumnos**, el administrador puede buscar por nombre o teléfono, asignar o quitar clases y activar o desactivar cuentas.
+- Para habilitar la gestión de alumnos en una base existente, ejecuta `supabase/student_management_migration.sql` en **Supabase → SQL Editor** antes de desplegar esta versión. La migración añade las políticas necesarias para que solo administración pueda gestionar matrículas y estados de cuenta; una cuenta desactivada pierde el acceso a los datos de la aplicación.
 - El administrador añade clases desde la pestaña Administración.
 - Para cargar el horario de SyC Dance Academy del curso 2026-2027, ejecuta `supabase/seed_schedule_2026_2027.sql` en **Supabase → SQL Editor** después de crear el esquema. El script solo inserta clases que no coincidan ya con los datos del horario.
 - El administrador sube vídeos asociados a una clase.
