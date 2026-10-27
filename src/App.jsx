@@ -192,6 +192,23 @@ export default function App() {
     setBusy(false);
   }
 
+  async function cancelEnrollment(enrollmentId) {
+    if (!supabase || !session?.user?.id) return;
+    setBusy(true); setNotice('');
+    const { error } = await supabase.from('enrollments')
+      .delete()
+      .eq('id', enrollmentId)
+      .eq('user_id', session.user.id)
+      .eq('status', 'pending');
+    if (error) {
+      setNotice(messageFrom(error));
+    } else {
+      setEnrollments((current) => current.filter((enrollment) => enrollment.id !== enrollmentId));
+      setNotice('Solicitud cancelada.');
+    }
+    setBusy(false);
+  }
+
   async function updateEnrollment(id, status) {
     const { error } = await supabase.from('enrollments').update({ status }).eq('id', id);
     setNotice(error ? messageFrom(error) : `Solicitud ${status === 'approved' ? 'aprobada' : 'rechazada'}.`);
@@ -321,8 +338,8 @@ export default function App() {
                   : enrollment?.status === 'pending' ? <span className="status pending">Solicitud pendiente</span>
                   : enrollment?.status === 'rejected' && <span className="status rejected">Solicitud rechazada</span>}
                 {enrollment?.status === 'approved' && <button className="primary-button full class-open-button" onClick={() => navigateTo(tab, c.id)}>Entrar a la clase</button>}
-                {tab === 'myClasses' && enrollment?.status === 'pending' && <button className="primary-button full class-open-button" onClick={() => navigateTo(tab, c.id)}>Ver clase</button>}
-                {tab === 'classes' && enrollment?.status !== 'approved' && enrollment?.status !== 'pending' && <button className="primary-button full" disabled={busy} onClick={() => requestAccess(c.id)}>{enrollment?.status === 'rejected' ? 'Volver a solicitar acceso' : 'Solicitar acceso'}</button>}
+                {tab === 'classes' && enrollment?.status === 'pending' && <button className="secondary-button full class-open-button" disabled={busy} onClick={() => cancelEnrollment(enrollment.id)}>Cancelar solicitud</button>}
+                {tab === 'classes' && !enrollment && <button className="primary-button full" disabled={busy} onClick={() => requestAccess(c.id)}>Solicitar acceso</button>}
               </article>;
             })}</div>}
           </>}

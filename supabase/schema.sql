@@ -155,8 +155,13 @@ create policy "enrollments_admin_update" on public.enrollments
 for update to authenticated using ((select public.is_admin())) with check ((select public.is_admin()));
 
 drop policy if exists "enrollments_admin_delete" on public.enrollments;
-create policy "enrollments_admin_delete" on public.enrollments
-for delete to authenticated using ((select public.is_admin()));
+drop policy if exists "enrollments_delete_own_pending_or_admin" on public.enrollments;
+create policy "enrollments_delete_own_pending_or_admin" on public.enrollments
+for delete to authenticated
+using (
+  (user_id = (select auth.uid()) and status = 'pending')
+  or (select public.is_admin())
+);
 
 -- Videos: el alumno solo ve metadata de vídeos de clases aprobadas.
 drop policy if exists "videos_read_authorized_or_admin" on public.class_videos;
