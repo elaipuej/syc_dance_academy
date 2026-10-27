@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from './lib/supabase';
+import sycLogo from './assets/syc-logo.png';
 import { Music2, LogOut, ShieldCheck, Video, CalendarDays, Users, Plus, Upload, Check, X, RefreshCw, Play, Maximize2, Minimize2 } from 'lucide-react';
 
 const WEEKDAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
@@ -279,7 +280,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <div className="brand"><div className="brand-mark"><Music2 size={23} /></div><div><strong>SyC <span>Dance Academy</span></strong><small>Área privada de alumnos</small></div></div>
+        <Brand subtitle="Área privada de alumnos" />
         <div className="top-actions">
           <span className="user-chip">{profile?.full_name || session.user.email}</span>
           {isAdmin && <span className="admin-pill"><ShieldCheck size={14} /> Administrador</span>}
@@ -399,8 +400,8 @@ export default function App() {
 
 function AuthScreen({ authMode, setAuthMode, authForm, setAuthForm, handleAuth, busy, notice }) {
   const signup = authMode === 'signup';
-  return <main className="auth-layout"><section className="auth-visual"><div className="brand brand-light"><div className="brand-mark"><Music2 size={23}/></div><div><strong>SyC <span>Dance Academy</span></strong><small>Conecta con tu ritmo</small></div></div><div className="auth-copy"><p className="eyebrow">TU COMUNIDAD DE BAILE</p><h1>El siguiente paso<br/>empieza en la pista.</h1><p>Clases, técnica y vídeos para seguir evolucionando, dentro y fuera de la academia.</p></div><div className="auth-decoration">SyC <span>·</span> DANCE <span>·</span> COMMUNITY</div></section>
-    <section className="auth-panel"><div className="auth-form-wrap"><div className="mobile-brand brand"><div className="brand-mark"><Music2 size={23}/></div><div><strong>SyC <span>Dance Academy</span></strong><small>Área privada de alumnos</small></div></div><p className="eyebrow">{signup ? 'ÚNETE A LA ACADEMIA' : 'QUÉ BUENO VERTE'}</p><h2>{signup ? 'Crea tu cuenta' : 'Inicia sesión'}</h2><p className="muted">{signup ? 'Regístrate y solicita acceso a tus clases.' : 'Accede a tus clases y vídeos autorizados.'}</p>
+  return <main className="auth-layout"><section className="auth-visual"><Brand className="brand-light" subtitle="Conecta con tu ritmo" /><div className="auth-copy"><p className="eyebrow">TU COMUNIDAD DE BAILE</p><h1>El siguiente paso<br/>empieza en la pista.</h1><p>Clases, técnica y vídeos para seguir evolucionando, dentro y fuera de la academia.</p></div><div className="auth-decoration">SyC <span>·</span> DANCE <span>·</span> COMMUNITY</div></section>
+    <section className="auth-panel"><div className="auth-form-wrap"><Brand className="mobile-brand" subtitle="Área privada de alumnos" /><p className="eyebrow">{signup ? 'ÚNETE A LA ACADEMIA' : 'QUÉ BUENO VERTE'}</p><h2>{signup ? 'Crea tu cuenta' : 'Inicia sesión'}</h2><p className="muted">{signup ? 'Regístrate y solicita acceso a tus clases.' : 'Accede a tus clases y vídeos autorizados.'}</p>
     {notice && <div className="notice">{notice}</div>}
     <form className="stack-form auth-form" onSubmit={handleAuth}>
       {signup && <><label>Nombre y apellidos<input required autoComplete="name" value={authForm.full_name} onChange={e=>setAuthForm({...authForm,full_name:e.target.value})} placeholder="Tu nombre completo" /></label><label>Teléfono<input type="tel" autoComplete="tel" value={authForm.phone} onChange={e=>setAuthForm({...authForm,phone:e.target.value})} placeholder="Tu teléfono" /></label></>}
@@ -411,6 +412,13 @@ function AuthScreen({ authMode, setAuthMode, authForm, setAuthForm, handleAuth, 
 }
 
 function Empty({ text }) { return <div className="empty-state"><div><Music2 size={24}/></div><p>{text}</p></div>; }
+
+function Brand({ className = '', subtitle }) {
+  return <div className={`brand ${className}`}>
+    <img className="brand-logo" src={sycLogo} alt="SyC Dance Academy" />
+    {subtitle && <small className="brand-caption">{subtitle}</small>}
+  </div>;
+}
 
 function YouTubePlayer({ video, playing, onPlay }) {
   const playerRef = useRef(null);
@@ -481,5 +489,5 @@ function YouTubePlayer({ video, playing, onPlay }) {
 }
 
 function SetupMessage() {
-  return <div className="setup-screen"><div className="brand"><div className="brand-mark"><Music2 size={23}/></div><div><strong>SyC <span>Dance Academy</span></strong><small>Configuración inicial</small></div></div><h1>Conecta tu proyecto de Supabase</h1><p>Crea un archivo <code>.env.local</code> en la raíz del proyecto con la URL y la clave publicable de Supabase. Después reinicia el servidor de desarrollo.</p><pre>{'VITE_SUPABASE_URL=https://TU-PROYECTO.supabase.co\\nVITE_SUPABASE_PUBLISHABLE_KEY=TU_CLAVE_SB_PUBLISHABLE'}</pre><p>Consulta <code>README.md</code> para los pasos completos. No uses una clave <code>sb_secret_</code> ni <code>service_role</code> en el navegador.</p></div>;
+  return <div className="setup-screen"><Brand subtitle="Configuración inicial" /><h1>Conecta tu proyecto de Supabase</h1><p>Crea un archivo <code>.env.local</code> en la raíz del proyecto con la URL y la clave publicable de Supabase. Después reinicia el servidor de desarrollo.</p><pre>{'VITE_SUPABASE_URL=https://TU-PROYECTO.supabase.co\\nVITE_SUPABASE_PUBLISHABLE_KEY=TU_CLAVE_SB_PUBLISHABLE'}</pre><p>Consulta <code>README.md</code> para los pasos completos. No uses una clave <code>sb_secret_</code> ni <code>service_role</code> en el navegador.</p></div>;
 }
