@@ -280,7 +280,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <Brand subtitle="Área privada de alumnos" />
+        <Brand />
         <div className="top-actions">
           <span className="user-chip">{profile?.full_name || session.user.email}</span>
           {isAdmin && <span className="admin-pill"><ShieldCheck size={14} /> Administrador</span>}
@@ -401,7 +401,7 @@ export default function App() {
 function AuthScreen({ authMode, setAuthMode, authForm, setAuthForm, handleAuth, busy, notice }) {
   const signup = authMode === 'signup';
   return <main className="auth-layout"><section className="auth-visual"><Brand className="brand-light" subtitle="Conecta con tu ritmo" /><div className="auth-copy"><p className="eyebrow">TU COMUNIDAD DE BAILE</p><h1>El siguiente paso<br/>empieza en la pista.</h1><p>Clases, técnica y vídeos para seguir evolucionando, dentro y fuera de la academia.</p></div><div className="auth-decoration">SyC <span>·</span> DANCE <span>·</span> COMMUNITY</div></section>
-    <section className="auth-panel"><div className="auth-form-wrap"><Brand className="mobile-brand" subtitle="Área privada de alumnos" /><p className="eyebrow">{signup ? 'ÚNETE A LA ACADEMIA' : 'QUÉ BUENO VERTE'}</p><h2>{signup ? 'Crea tu cuenta' : 'Inicia sesión'}</h2><p className="muted">{signup ? 'Regístrate y solicita acceso a tus clases.' : 'Accede a tus clases y vídeos autorizados.'}</p>
+    <section className="auth-panel"><div className="auth-form-wrap"><Brand className="mobile-brand" /><p className="eyebrow">{signup ? 'ÚNETE A LA ACADEMIA' : 'QUÉ BUENO VERTE'}</p><h2>{signup ? 'Crea tu cuenta' : 'Inicia sesión'}</h2><p className="muted">{signup ? 'Regístrate y solicita acceso a tus clases.' : 'Accede a tus clases y vídeos autorizados.'}</p>
     {notice && <div className="notice">{notice}</div>}
     <form className="stack-form auth-form" onSubmit={handleAuth}>
       {signup && <><label>Nombre y apellidos<input required autoComplete="name" value={authForm.full_name} onChange={e=>setAuthForm({...authForm,full_name:e.target.value})} placeholder="Tu nombre completo" /></label><label>Teléfono<input type="tel" autoComplete="tel" value={authForm.phone} onChange={e=>setAuthForm({...authForm,phone:e.target.value})} placeholder="Tu teléfono" /></label></>}
@@ -428,11 +428,7 @@ function YouTubePlayer({ video, playing, onPlay }) {
 
   useEffect(() => {
     function syncFullscreenState() {
-      setIsFullscreen(Boolean(
-        playerRef.current
-        && document.fullscreenElement
-        && playerRef.current.contains(document.fullscreenElement)
-      ));
+      setIsFullscreen(document.fullscreenElement === playerRef.current);
     }
 
     document.addEventListener('fullscreenchange', syncFullscreenState);
@@ -444,30 +440,41 @@ function YouTubePlayer({ video, playing, onPlay }) {
     if (!player) return;
 
     setFullscreenError('');
-    try {
-      if (document.fullscreenElement && player.contains(document.fullscreenElement)) {
-        await document.exitFullscreen();
-      } else if (player.requestFullscreen) {
-        await player.requestFullscreen();
+    if (isFullscreen) {
+      if (document.fullscreenElement === player && document.exitFullscreen) {
+        try {
+          await document.exitFullscreen();
+        } catch {
+          setFullscreenError('Usa el botón de pantalla completa del navegador para salir.');
+        }
       } else {
-        setFullscreenError('Este navegador no permite ampliar el reproductor incrustado.');
+        setIsFullscreen(false);
       }
-    } catch {
-      setFullscreenError('No se pudo activar la pantalla completa. Prueba desde los controles de YouTube.');
+      return;
+    }
+
+    if (player.requestFullscreen) {
+      try {
+        await player.requestFullscreen();
+        setIsFullscreen(true);
+      } catch {
+        setIsFullscreen(true);
+      }
+    } else {
+      setIsFullscreen(true);
     }
   }
 
   if (!videoId) return <div className="video-art"><Video size={30} /></div>;
 
   if (playing) {
-    return <div className="youtube-player" ref={playerRef}>
+    return <div className={`youtube-player${isFullscreen ? ' is-fullscreen' : ''}`} ref={playerRef}>
       <iframe
-        src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&playsinline=1&rel=0&controls=1&fs=1`}
+        src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&playsinline=1&rel=0&controls=1&fs=0`}
         title={video.title}
         loading="lazy"
         referrerPolicy="strict-origin-when-cross-origin"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
-        allowFullScreen
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
       />
       <button
         className="youtube-fullscreen-button"

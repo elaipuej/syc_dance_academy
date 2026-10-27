@@ -17,9 +17,9 @@
 .youtube-fullscreen-button{position:absolute;z-index:2;top:10px;right:10px;display:grid;place-items:center;width:42px;height:42px;padding:0;border:1px solid #ffffff70;border-radius:10px;background:#171421d9;color:#fff;box-shadow:0 2px 8px #0005;touch-action:manipulation}
 .youtube-fullscreen-button:focus-visible{outline:3px solid #d8b879;outline-offset:2px}
 .youtube-fullscreen-error{position:absolute;z-index:3;right:10px;bottom:10px;left:10px;margin:0;padding:9px 11px;border-radius:8px;background:#171421eF;color:#fff;font-size:12px;line-height:1.4}
-.youtube-player:fullscreen{width:100vw;height:100vh;height:100dvh;max-height:none;aspect-ratio:auto;background:#000}
-.youtube-player:fullscreen iframe{object-fit:contain}
-.youtube-player:fullscreen .youtube-fullscreen-button{top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right))}
+.youtube-player:fullscreen,.youtube-player.is-fullscreen{position:fixed;z-index:9999;inset:0;width:100vw;height:100vh;height:100dvh;max-height:none;aspect-ratio:auto;background:#000}
+.youtube-player:fullscreen iframe,.youtube-player.is-fullscreen iframe{object-fit:contain}
+.youtube-player:fullscreen .youtube-fullscreen-button,.youtube-player.is-fullscreen .youtube-fullscreen-button{top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right))}
 .video-info{padding:13px}
 .video-info h3{margin:8px 0 4px}
 .video-info p{margin-bottom:0}
@@ -35,3 +35,5 @@
 .catalog-cta{margin-top:18px}
 .secondary-button{display:inline-flex;align-items:center;justify-content:center;border:1px solid #ded9e3;border-radius:10px;background:#fff;color:#5f5969;font-weight:700;font-size:13px;padding:12px 15px}
 .secondary-button:hover{background:#f7f6f8}
+.welcome h1{font-size:clamp(26px,3.7vw,36px)}
+@media(max-width:620px){.welcome h1{font-size:27px}}
