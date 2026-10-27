@@ -107,8 +107,10 @@ No subas `.env.local` al repositorio. La aplicación es cliente y la clave publi
 - El administrador sube vídeos asociados a una clase.
 - Después de crear las clases, ejecuta `supabase/youtube_videos_2026_2027.sql` en **Supabase → SQL Editor** para permitir y cargar los enlaces iniciales de YouTube. El script comprueba que existan las clases necesarias antes de insertar y se puede volver a ejecutar sin duplicar enlaces.
 - Los vídeos solo aparecen a alumnos con acceso aprobado a la clase; las miniaturas se cargan de forma diferida y el reproductor de YouTube se abre al tocar una tarjeta.
+- En el móvil, el botón Atrás recorre la navegación interna y permanece en la app al llegar a la pantalla inicial.
 - Solo alumnos con matrícula `approved` para esa clase pueden consultar sus vídeos.
 - Los archivos de vídeo subidos se almacenan en un bucket privado y la aplicación genera enlaces firmados de duración limitada. Los vídeos de YouTube siguen sujetos a las opciones de privacidad y disponibilidad definidas en YouTube.
+- YouTube controla su reproductor incrustado: no se puede garantizar que el usuario no abra el vídeo en YouTube ni impedir que comparta un enlace. Para un control estricto del reproductor, aloja los vídeos en un servicio de streaming privado en lugar de YouTube.
 
 ## 8. Importante antes de publicar
 

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from './lib/supabase';
 import { Music2, LogOut, ShieldCheck, Video, CalendarDays, Users, Plus, Upload, Check, X, RefreshCw, Play } from 'lucide-react';
 
@@ -36,6 +36,7 @@ export default function App() {
   const [videoForm, setVideoForm] = useState({ class_id: '', title: '', file: null, youtube_url: '' });
   const [videoClassFilter, setVideoClassFilter] = useState('all');
   const [playingVideoId, setPlayingVideoId] = useState(null);
+  const routeRef = useRef({ tab: 'myClasses', classId: null });
 
   const isAdmin = profile?.role === 'admin';
 
@@ -113,9 +114,38 @@ export default function App() {
     .sort((a, b) => (a.dance_classes?.title || '').localeCompare(b.dance_classes?.title || '', 'es')
       || a.title.localeCompare(b.title, 'es', { numeric: true }));
 
+  const navigateTo = useCallback((nextTab, classId = null) => {
+    const route = { sycApp: true, tab: nextTab, classId };
+    routeRef.current = route;
+    window.history.pushState(route, '', window.location.href);
+    setTab(nextTab);
+    setSelectedClassId(classId);
+  }, []);
+
   useEffect(() => {
-    if (isAdmin && tab === 'myClasses') setTab('classes');
-  }, [isAdmin, tab]);
+    if (!session?.user?.id || !profile) return undefined;
+
+    const initialRoute = { sycApp: true, tab: isAdmin ? 'classes' : 'myClasses', classId: null };
+    routeRef.current = initialRoute;
+    setTab(initialRoute.tab);
+    setSelectedClassId(null);
+    window.history.pushState(initialRoute, '', window.location.href);
+
+    function handlePopState(event) {
+      const route = event.state?.sycApp
+        ? event.state
+        : routeRef.current;
+      if (!event.state?.sycApp) {
+        window.history.pushState({ ...route, sycApp: true }, '', window.location.href);
+      }
+      routeRef.current = route;
+      setTab(route.tab);
+      setSelectedClassId(route.classId);
+    }
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [session?.user?.id, profile, isAdmin]);
 
   async function handleAuth(event) {
     event.preventDefault();
@@ -249,16 +279,16 @@ export default function App() {
         {notice && <div className="notice" role="status">{notice}<button onClick={() => setNotice('')} aria-label="Cerrar aviso"><X size={16} /></button></div>}
 
         <nav className="tabs">
-          {!isAdmin && <button className={tab === 'myClasses' ? 'active' : ''} onClick={() => { setTab('myClasses'); setSelectedClassId(null); }}><CalendarDays size={17} /> Mis clases</button>}
-          <button className={tab === 'classes' ? 'active' : ''} onClick={() => { setTab('classes'); setSelectedClassId(null); }}><CalendarDays size={17} /> {isAdmin ? 'Clases' : 'Todas las clases'}</button>
-          {isAdmin && <button className={tab === 'videos' ? 'active' : ''} onClick={() => setTab('videos')}><Video size={17} /> Vídeos</button>}
-          {isAdmin && <button className={tab === 'admin' ? 'active' : ''} onClick={() => setTab('admin')}><ShieldCheck size={17} /> Administración</button>}
+          {!isAdmin && <button className={tab === 'myClasses' ? 'active' : ''} onClick={() => navigateTo('myClasses')}><CalendarDays size={17} /> Mis clases</button>}
+          <button className={tab === 'classes' ? 'active' : ''} onClick={() => navigateTo('classes')}><CalendarDays size={17} /> {isAdmin ? 'Clases' : 'Todas las clases'}</button>
+          {isAdmin && <button className={tab === 'videos' ? 'active' : ''} onClick={() => navigateTo('videos')}><Video size={17} /> Vídeos</button>}
+          {isAdmin && <button className={tab === 'admin' ? 'active' : ''} onClick={() => navigateTo('admin')}><ShieldCheck size={17} /> Administración</button>}
         </nav>
 
         {(tab === 'myClasses' || tab === 'classes') && <section>
           {selectedClass ? <>
             <div className="section-heading class-detail-heading">
-              <div><button className="subtle-button class-back-button" onClick={() => setSelectedClassId(null)}>← Volver a {tab === 'myClasses' ? 'mis clases' : 'todas las clases'}</button>
+              <div><button className="subtle-button class-back-button" onClick={() => window.history.back()}>← Volver a {tab === 'myClasses' ? 'mis clases' : 'todas las clases'}</button>
                 <h2>{selectedClass.title}</h2><p>{selectedClass.style} · Nivel {selectedClass.level} · {WEEKDAYS[selectedClass.weekday - 1]} · {String(selectedClass.start_time).slice(0,5)}</p>
               </div>
             </div>
@@ -290,8 +320,8 @@ export default function App() {
                 {enrollment?.status === 'approved' ? <span className="status approved"><Check size={15} /> Acceso aprobado</span>
                   : enrollment?.status === 'pending' ? <span className="status pending">Solicitud pendiente</span>
                   : enrollment?.status === 'rejected' && <span className="status rejected">Solicitud rechazada</span>}
-                {enrollment?.status === 'approved' && <button className="primary-button full class-open-button" onClick={() => setSelectedClassId(c.id)}>Entrar a la clase</button>}
-                {tab === 'myClasses' && enrollment?.status === 'pending' && <button className="primary-button full class-open-button" onClick={() => setSelectedClassId(c.id)}>Ver clase</button>}
+                {enrollment?.status === 'approved' && <button className="primary-button full class-open-button" onClick={() => navigateTo(tab, c.id)}>Entrar a la clase</button>}
+                {tab === 'myClasses' && enrollment?.status === 'pending' && <button className="primary-button full class-open-button" onClick={() => navigateTo(tab, c.id)}>Ver clase</button>}
                 {tab === 'classes' && enrollment?.status !== 'approved' && enrollment?.status !== 'pending' && <button className="primary-button full" disabled={busy} onClick={() => requestAccess(c.id)}>{enrollment?.status === 'rejected' ? 'Volver a solicitar acceso' : 'Solicitar acceso'}</button>}
               </article>;
             })}</div>}
@@ -376,7 +406,7 @@ function YouTubePlayer({ video, playing, onPlay }) {
         title={video.title}
         loading="lazy"
         referrerPolicy="strict-origin-when-cross-origin"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
         allowFullScreen
       />
     </div>;
