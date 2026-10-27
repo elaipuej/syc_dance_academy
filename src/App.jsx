@@ -93,6 +93,10 @@ export default function App() {
       if (data.session) loadProfile(data.session.user);
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (_event === 'PASSWORD_RECOVERY') {
+        setAuthMode('update-password');
+        setNotice('Elige una nueva contraseña para tu cuenta.');
+      }
       setSession(nextSession);
       if (nextSession) setTimeout(() => loadProfile(nextSession.user), 0);
       else setProfile(null);
@@ -195,6 +199,58 @@ export default function App() {
       }
     } catch (error) { setNotice(messageFrom(error)); }
     finally { setBusy(false); }
+  }
+
+  async function handlePasswordReset() {
+    if (!supabase) return;
+    const email = authForm.email.trim();
+    if (!email) {
+      setNotice('Introduce tu correo electrónico para recibir el enlace de recuperación.');
+      return;
+    }
+
+    setBusy(true); setNotice('');
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}${window.location.pathname}`
+      });
+      if (error) throw error;
+      setNotice('Si existe una cuenta con ese correo, recibirás un enlace para restablecer la contraseña. Revisa también la carpeta de spam.');
+    } catch (error) {
+      setNotice(messageFrom(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handlePasswordUpdate(event, password, confirmation) {
+    event.preventDefault();
+    if (!supabase) return;
+    if (password.length < 8) {
+      setNotice('La contraseña debe tener al menos 8 caracteres.');
+      return;
+    }
+    if (password !== confirmation) {
+      setNotice('Las contraseñas no coinciden.');
+      return;
+    }
+
+    setBusy(true); setNotice('');
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) throw error;
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (signOutError) throw signOutError;
+      setSession(null);
+      setProfile(null);
+      setAuthForm((current) => ({ ...current, password: '' }));
+      setAuthMode('login');
+      setNotice('Contraseña actualizada. Ya puedes iniciar sesión con la nueva contraseña.');
+    } catch (error) {
+      setNotice(messageFrom(error));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function signOut() {
@@ -350,7 +406,7 @@ export default function App() {
 
 
   if (!supabase) return <SetupMessage />;
-  if (!session) return <AuthScreen authMode={authMode} setAuthMode={setAuthMode} authForm={authForm} setAuthForm={setAuthForm} handleAuth={handleAuth} busy={busy} notice={notice} />;
+  if (!session || authMode === 'update-password') return <AuthScreen authMode={authMode} setAuthMode={setAuthMode} authForm={authForm} setAuthForm={setAuthForm} handleAuth={handleAuth} handlePasswordReset={handlePasswordReset} handlePasswordUpdate={handlePasswordUpdate} busy={busy} notice={notice} />;
 
   return (
     <div className="app-shell">
@@ -522,17 +578,26 @@ export default function App() {
   );
 }
 
-function AuthScreen({ authMode, setAuthMode, authForm, setAuthForm, handleAuth, busy, notice }) {
+function AuthScreen({ authMode, setAuthMode, authForm, setAuthForm, handleAuth, handlePasswordReset, handlePasswordUpdate, busy, notice }) {
   const signup = authMode === 'signup';
+  const updatingPassword = authMode === 'update-password';
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   return <main className="auth-layout"><section className="auth-visual"><Brand className="brand-light" subtitle="Conecta con tu ritmo" /><div className="auth-copy"><p className="eyebrow">TU COMUNIDAD DE BAILE</p><h1>El siguiente paso<br/>empieza en la pista.</h1><p>Clases, técnica y vídeos para seguir evolucionando, dentro y fuera de la academia.</p></div><div className="auth-decoration">SyC <span>·</span> DANCE <span>·</span> COMMUNITY</div></section>
-    <section className="auth-panel"><div className="auth-form-wrap"><Brand className="mobile-brand" /><p className="eyebrow">{signup ? 'ÚNETE A LA ACADEMIA' : 'QUÉ BUENO VERTE'}</p><h2>{signup ? 'Crea tu cuenta' : 'Inicia sesión'}</h2><p className="muted">{signup ? 'Regístrate y solicita acceso a tus clases.' : 'Accede a tus clases y vídeos autorizados.'}</p>
+    <section className="auth-panel"><div className="auth-form-wrap"><Brand className="mobile-brand" /><p className="eyebrow">{updatingPassword ? 'RECUPERACIÓN DE CUENTA' : signup ? 'ÚNETE A LA ACADEMIA' : 'QUÉ BUENO VERTE'}</p><h2>{updatingPassword ? 'Crea una contraseña nueva' : signup ? 'Crea tu cuenta' : 'Inicia sesión'}</h2><p className="muted">{updatingPassword ? 'Elige una contraseña segura para volver a acceder a tu cuenta.' : signup ? 'Regístrate y solicita acceso a tus clases.' : 'Accede a tus clases y vídeos autorizados.'}</p>
     {notice && <div className="notice">{notice}</div>}
-    <form className="stack-form auth-form" onSubmit={handleAuth}>
+    {updatingPassword ? <form className="stack-form auth-form" onSubmit={(event) => handlePasswordUpdate(event, newPassword, confirmPassword)}>
+      <label>Nueva contraseña<input required type="password" minLength={8} autoComplete="new-password" value={newPassword} onChange={event => setNewPassword(event.target.value)} placeholder="Mínimo 8 caracteres" /></label>
+      <label>Repite la nueva contraseña<input required type="password" minLength={8} autoComplete="new-password" value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} placeholder="Mínimo 8 caracteres" /></label>
+      <button className="primary-button full auth-submit" type="submit" disabled={busy}>{busy ? 'Un momento…' : 'Guardar contraseña'}</button>
+    </form> : <form className="stack-form auth-form" onSubmit={handleAuth}>
       {signup && <><label>Nombre y apellidos<input required autoComplete="name" value={authForm.full_name} onChange={e=>setAuthForm({...authForm,full_name:e.target.value})} placeholder="Tu nombre completo" /></label><label>Teléfono<input type="tel" autoComplete="tel" value={authForm.phone} onChange={e=>setAuthForm({...authForm,phone:e.target.value})} placeholder="Tu teléfono" /></label></>}
       <label>Correo electrónico<input required type="email" autoComplete="email" value={authForm.email} onChange={e=>setAuthForm({...authForm,email:e.target.value})} placeholder="tu@correo.com" /></label>
       <label>Contraseña<input required type="password" minLength={8} autoComplete={signup ? 'new-password' : 'current-password'} value={authForm.password} onChange={e=>setAuthForm({...authForm,password:e.target.value})} placeholder="Mínimo 8 caracteres" /></label>
+      {!signup && <button className="auth-text-button reset-password-button" type="button" onClick={handlePasswordReset} disabled={busy}>¿Has olvidado tu contraseña?</button>}
       <button className="primary-button full auth-submit" type="submit" disabled={busy}>{busy ? 'Un momento…' : signup ? 'Crear cuenta' : 'Entrar'} </button>
-    </form><p className="switch-auth">{signup ? '¿Ya tienes cuenta?' : '¿Todavía no tienes cuenta?'} <button onClick={()=>{setAuthMode(signup?'login':'signup');}}>{signup ? 'Inicia sesión' : 'Regístrate'}</button></p><p className="auth-privacy">El acceso a clases y vídeos requiere aprobación de la academia.</p></div></section></main>;
+    </form>}
+    {!updatingPassword && <p className="switch-auth">{signup ? '¿Ya tienes cuenta?' : '¿Todavía no tienes cuenta?'} <button onClick={()=>{setAuthMode(signup?'login':'signup');}}>{signup ? 'Inicia sesión' : 'Regístrate'}</button></p>}<p className="auth-privacy">El acceso a clases y vídeos requiere aprobación de la academia.</p></div></section></main>;
 }
 
 function Empty({ text }) { return <div className="empty-state"><div><Music2 size={24}/></div><p>{text}</p></div>; }

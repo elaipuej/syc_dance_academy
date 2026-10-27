@@ -71,6 +71,8 @@ En **Authentication → Providers → Email**, decide si exigirás confirmación
 
 ## 6. Ejecutar localmente
 
+Para que funcione **¿Has olvidado tu contraseña?**, añade a **Authentication → URL Configuration → Redirect URLs** `http://localhost:5173/**` y `https://elaipuej.github.io/syc_dance_academy/**`. El usuario recibirá un enlace por correo y podrá establecer una contraseña nueva desde la aplicación.
+
 ```bash
 npm run dev
 ```

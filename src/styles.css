@@ -6,6 +6,8 @@
 .brand-logo{display:block;width:160px;height:auto;object-fit:contain}
 .brand-caption{color:#aaa5b4;font-size:11px;line-height:1.35}
 .brand-light .brand-logo{width:195px}
+.auth-text-button{align-self:flex-end;border:0;background:none;color:#8b6b32;font-size:12px;font-weight:700;padding:0}
+.auth-text-button:disabled{cursor:wait}
 .mobile-brand .brand-logo{width:150px}
 .video-grid{grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
 .youtube-preview,.youtube-player{position:relative;display:block;width:100%;aspect-ratio:9/16;background:#171421}
