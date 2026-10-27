@@ -337,7 +337,7 @@ export default function App() {
                 {enrollment?.status === 'approved' ? <span className="status approved"><Check size={15} /> Acceso aprobado</span>
                   : enrollment?.status === 'pending' ? <span className="status pending">Solicitud pendiente</span>
                   : enrollment?.status === 'rejected' && <span className="status rejected">Solicitud rechazada</span>}
-                {enrollment?.status === 'approved' && <button className="primary-button full class-open-button" onClick={() => navigateTo(tab, c.id)}>Entrar a la clase</button>}
+                {tab === 'myClasses' && enrollment?.status === 'approved' && <button className="primary-button full class-open-button" onClick={() => navigateTo(tab, c.id)}>Entrar a la clase</button>}
                 {tab === 'classes' && enrollment?.status === 'pending' && <button className="secondary-button full class-open-button" disabled={busy} onClick={() => cancelEnrollment(enrollment.id)}>Cancelar solicitud</button>}
                 {tab === 'classes' && !enrollment && <button className="primary-button full" disabled={busy} onClick={() => requestAccess(c.id)}>Solicitar acceso</button>}
               </article>;
@@ -420,7 +420,11 @@ function YouTubePlayer({ video, playing, onPlay }) {
 
   useEffect(() => {
     function syncFullscreenState() {
-      setIsFullscreen(document.fullscreenElement === playerRef.current);
+      setIsFullscreen(Boolean(
+        playerRef.current
+        && document.fullscreenElement
+        && playerRef.current.contains(document.fullscreenElement)
+      ));
     }
 
     document.addEventListener('fullscreenchange', syncFullscreenState);
@@ -433,7 +437,7 @@ function YouTubePlayer({ video, playing, onPlay }) {
 
     setFullscreenError('');
     try {
-      if (document.fullscreenElement === player) {
+      if (document.fullscreenElement && player.contains(document.fullscreenElement)) {
         await document.exitFullscreen();
       } else if (player.requestFullscreen) {
         await player.requestFullscreen();
