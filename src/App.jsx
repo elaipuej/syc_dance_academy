@@ -22,7 +22,8 @@ function messageFrom(error) {
 export default function App() {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
-  const [tab, setTab] = useState('classes');
+  const [tab, setTab] = useState('myClasses');
+  const [selectedClassId, setSelectedClassId] = useState(null);
   const [classes, setClasses] = useState([]);
   const [enrollments, setEnrollments] = useState([]);
   const [videos, setVideos] = useState([]);
@@ -94,12 +95,27 @@ export default function App() {
   );
   const enrollmentFor = (classId) => ownEnrollments.find((e) => e.class_id === classId);
   const canSeeVideo = (video) => isAdmin || ownEnrollments.some((e) => e.class_id === video.class_id && e.status === 'approved');
+  const activeClasses = classes.filter((danceClass) => danceClass.is_active || isAdmin);
+  const myClasses = activeClasses.filter((danceClass) => {
+    const enrollment = enrollmentFor(danceClass.id);
+    return enrollment && enrollment.status !== 'rejected';
+  });
+  const visibleClasses = tab === 'myClasses' ? myClasses : activeClasses;
+  const selectedClass = classes.find((danceClass) => danceClass.id === selectedClassId);
+  const selectedClassVideos = selectedClass
+    ? videos.filter((video) => video.class_id === selectedClass.id && canSeeVideo(video))
+      .sort((a, b) => a.title.localeCompare(b.title, 'es', { numeric: true }))
+    : [];
   const authorizedVideos = videos.filter(canSeeVideo);
   const videoClasses = [...new Map(authorizedVideos.map((video) => [video.class_id, video.dance_classes?.title || 'Clase']))];
   const filteredVideos = authorizedVideos
     .filter((video) => videoClassFilter === 'all' || video.class_id === videoClassFilter)
     .sort((a, b) => (a.dance_classes?.title || '').localeCompare(b.dance_classes?.title || '', 'es')
       || a.title.localeCompare(b.title, 'es', { numeric: true }));
+
+  useEffect(() => {
+    if (isAdmin && tab === 'myClasses') setTab('classes');
+  }, [isAdmin, tab]);
 
   async function handleAuth(event) {
     event.preventDefault();
@@ -130,7 +146,7 @@ export default function App() {
   async function signOut() {
     await supabase?.auth.signOut();
     setSession(null); setProfile(null); setClasses([]); setEnrollments([]); setVideos([]);
-    setTab('classes'); setNotice(''); setPlayingVideoId(null); setVideoClassFilter('all');
+    setTab('myClasses'); setSelectedClassId(null); setNotice(''); setPlayingVideoId(null); setVideoClassFilter('all');
   }
 
   async function requestAccess(classId) {
@@ -233,15 +249,38 @@ export default function App() {
         {notice && <div className="notice" role="status">{notice}<button onClick={() => setNotice('')} aria-label="Cerrar aviso"><X size={16} /></button></div>}
 
         <nav className="tabs">
-          <button className={tab === 'classes' ? 'active' : ''} onClick={() => setTab('classes')}><CalendarDays size={17} /> Clases</button>
-          <button className={tab === 'videos' ? 'active' : ''} onClick={() => setTab('videos')}><Video size={17} /> Mis vídeos</button>
+          {!isAdmin && <button className={tab === 'myClasses' ? 'active' : ''} onClick={() => { setTab('myClasses'); setSelectedClassId(null); }}><CalendarDays size={17} /> Mis clases</button>}
+          <button className={tab === 'classes' ? 'active' : ''} onClick={() => { setTab('classes'); setSelectedClassId(null); }}><CalendarDays size={17} /> {isAdmin ? 'Clases' : 'Todas las clases'}</button>
+          {isAdmin && <button className={tab === 'videos' ? 'active' : ''} onClick={() => setTab('videos')}><Video size={17} /> Vídeos</button>}
           {isAdmin && <button className={tab === 'admin' ? 'active' : ''} onClick={() => setTab('admin')}><ShieldCheck size={17} /> Administración</button>}
         </nav>
 
-        {tab === 'classes' && <section>
-          <div className="section-heading"><div><h2>Horario de clases</h2><p>Solicita acceso a las clases que tienes contratadas.</p></div><button className="subtle-button" onClick={loadData}><RefreshCw size={15} /> Actualizar</button></div>
-          {classes.filter(c => c.is_active || isAdmin).length === 0 ? <Empty text="Todavía no hay clases publicadas. El administrador puede añadirlas desde Administración." /> :
-            <div className="class-grid">{classes.filter(c => c.is_active || isAdmin).map(c => {
+        {(tab === 'myClasses' || tab === 'classes') && <section>
+          {selectedClass ? <>
+            <div className="section-heading class-detail-heading">
+              <div><button className="subtle-button class-back-button" onClick={() => setSelectedClassId(null)}>← Volver a {tab === 'myClasses' ? 'mis clases' : 'todas las clases'}</button>
+                <h2>{selectedClass.title}</h2><p>{selectedClass.style} · Nivel {selectedClass.level} · {WEEKDAYS[selectedClass.weekday - 1]} · {String(selectedClass.start_time).slice(0,5)}</p>
+              </div>
+            </div>
+            {enrollmentFor(selectedClass.id)?.status === 'pending' && <div className="notice" role="status">Tu solicitud para esta clase está pendiente de aprobación. Los vídeos estarán disponibles cuando se apruebe.</div>}
+            {selectedClassVideos.length === 0
+              ? <Empty text={enrollmentFor(selectedClass.id)?.status === 'approved' || isAdmin ? 'Todavía no hay vídeos publicados para esta clase.' : 'Cuando se apruebe tu acceso, podrás ver aquí los vídeos de esta clase.'} />
+              : <div className="video-grid">{selectedClassVideos.map((video) => <article className="video-card" key={video.id}>
+                  {video.youtube_url ? <YouTubePlayer video={video} playing={playingVideoId === video.id} onPlay={() => setPlayingVideoId(video.id)} /> : <div className="video-art"><Video size={30} /></div>}
+                  <div className="video-info"><span className="style-pill">{selectedClass.style}</span><h3>{video.title}</h3>
+                    {!video.youtube_url && <button className="primary-button full" onClick={() => openVideo(video)}>Ver vídeo</button>}
+                  </div>
+                </article>)}</div>}
+          </> : <>
+          <div className="section-heading"><div><h2>{tab === 'myClasses' ? 'Mis clases' : 'Horario de clases'}</h2><p>{tab === 'myClasses' ? 'Tus clases y el material de cada una.' : 'Explora las clases disponibles y solicita acceso.'}</p></div>
+            <button className="subtle-button" onClick={loadData}><RefreshCw size={15} /> Actualizar</button>
+          </div>
+          {visibleClasses.length === 0
+            ? <div className="empty-state"><div><Music2 size={24}/></div><p>{tab === 'myClasses' ? 'Aún no tienes clases. Explora el horario y solicita acceso a las clases que tienes contratadas.' : 'Todavía no hay clases publicadas. El administrador puede añadirlas desde Administración.'}</p>
+                {tab === 'myClasses' && <button className="primary-button catalog-cta" onClick={() => setTab('classes')}>Ver todas las clases</button>}
+              </div>
+            :
+            <div className="class-grid">{visibleClasses.map(c => {
               const enrollment = enrollmentFor(c.id);
               return <article className="class-card" key={c.id}>
                 <div className="class-card-top"><span className="style-pill">{c.style}</span><span className="level-pill">Nivel {c.level}</span></div>
@@ -250,13 +289,16 @@ export default function App() {
                 <p className="teacher">{c.teacher ? `Profesor/a: ${c.teacher}` : 'Profesor/a por confirmar'}</p>
                 {enrollment?.status === 'approved' ? <span className="status approved"><Check size={15} /> Acceso aprobado</span>
                   : enrollment?.status === 'pending' ? <span className="status pending">Solicitud pendiente</span>
-                  : enrollment?.status === 'rejected' ? <span className="status rejected">Solicitud rechazada</span>
-                  : <button className="primary-button full" disabled={busy} onClick={() => requestAccess(c.id)}>Solicitar acceso</button>}
+                  : enrollment?.status === 'rejected' && <span className="status rejected">Solicitud rechazada</span>}
+                {enrollment?.status === 'approved' && <button className="primary-button full class-open-button" onClick={() => setSelectedClassId(c.id)}>Entrar a la clase</button>}
+                {tab === 'myClasses' && enrollment?.status === 'pending' && <button className="primary-button full class-open-button" onClick={() => setSelectedClassId(c.id)}>Ver clase</button>}
+                {tab === 'classes' && enrollment?.status !== 'approved' && enrollment?.status !== 'pending' && <button className="primary-button full" disabled={busy} onClick={() => requestAccess(c.id)}>{enrollment?.status === 'rejected' ? 'Volver a solicitar acceso' : 'Solicitar acceso'}</button>}
               </article>;
             })}</div>}
+          </>}
         </section>}
 
-        {tab === 'videos' && <section>
+        {tab === 'videos' && isAdmin && <section>
           <div className="section-heading video-library-heading"><div><h2>Biblioteca de vídeos</h2><p>Solo se muestran los vídeos de clases con acceso aprobado.</p></div>
             {videoClasses.length > 1 && <label className="video-filter">Filtrar por clase<select value={videoClassFilter} onChange={e=>setVideoClassFilter(e.target.value)}><option value="all">Todas las clases</option>{videoClasses.map(([id, title])=><option value={id} key={id}>{title}</option>)}</select></label>}
           </div>
