@@ -83,6 +83,19 @@ Para comprobar que compila:
 npm run build
 ```
 
+## Publicar en GitHub Pages
+
+El repositorio incluye un flujo de GitHub Actions que construye y publica la aplicación al subir cambios a `main`. Para activarlo:
+
+1. En GitHub, abre **Settings → Secrets and variables → Actions → New repository secret** y crea:
+   - `VITE_SUPABASE_URL`: URL del proyecto Supabase.
+   - `VITE_SUPABASE_PUBLISHABLE_KEY`: clave publishable de Supabase. Nunca uses una clave `sb_secret_` o `service_role`.
+2. Abre **Settings → Pages** y selecciona **GitHub Actions** como origen de publicación.
+3. En Supabase, abre **Authentication → URL Configuration** y establece `https://elaipuej.github.io/syc_dance_academy/` como **Site URL**. Añade esa misma URL a las **Redirect URLs**.
+4. En GitHub, abre **Actions** y comprueba que el flujo **Deploy to GitHub Pages** termine correctamente. La web estará en <https://elaipuej.github.io/syc_dance_academy/>.
+
+No subas `.env.local` al repositorio. La aplicación es cliente y la clave publishable queda incluida en el JavaScript generado por el build; protege los datos mediante las políticas RLS de Supabase.
+
 ## 7. Flujo de uso
 
 - El alumno crea su cuenta e inicia sesión.
