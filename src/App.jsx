@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from './lib/supabase';
-import { Music2, LogOut, ShieldCheck, Video, CalendarDays, Users, Plus, Upload, Check, X, RefreshCw, Play } from 'lucide-react';
+import { Music2, LogOut, ShieldCheck, Video, CalendarDays, Users, Plus, Upload, Check, X, RefreshCw, Play, Maximize2, Minimize2 } from 'lucide-react';
 
 const WEEKDAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 const emptyClass = { title: '', style: 'Bachata', level: 0, weekday: 1, start_time: '19:00', teacher: '', is_active: true };
@@ -396,19 +396,60 @@ function AuthScreen({ authMode, setAuthMode, authForm, setAuthForm, handleAuth, 
 function Empty({ text }) { return <div className="empty-state"><div><Music2 size={24}/></div><p>{text}</p></div>; }
 
 function YouTubePlayer({ video, playing, onPlay }) {
+  const playerRef = useRef(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [fullscreenError, setFullscreenError] = useState('');
   const videoId = getYouTubeVideoId(video.youtube_url);
+
+  useEffect(() => {
+    function syncFullscreenState() {
+      setIsFullscreen(document.fullscreenElement === playerRef.current);
+    }
+
+    document.addEventListener('fullscreenchange', syncFullscreenState);
+    return () => document.removeEventListener('fullscreenchange', syncFullscreenState);
+  }, []);
+
+  async function toggleFullscreen() {
+    const player = playerRef.current;
+    if (!player) return;
+
+    setFullscreenError('');
+    try {
+      if (document.fullscreenElement === player) {
+        await document.exitFullscreen();
+      } else if (player.requestFullscreen) {
+        await player.requestFullscreen();
+      } else {
+        setFullscreenError('Este navegador no permite ampliar el reproductor incrustado.');
+      }
+    } catch {
+      setFullscreenError('No se pudo activar la pantalla completa. Prueba desde los controles de YouTube.');
+    }
+  }
+
   if (!videoId) return <div className="video-art"><Video size={30} /></div>;
 
   if (playing) {
-    return <div className="youtube-player">
+    return <div className="youtube-player" ref={playerRef}>
       <iframe
-        src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&playsinline=1&rel=0`}
+        src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&playsinline=1&rel=0&controls=1&fs=1`}
         title={video.title}
         loading="lazy"
         referrerPolicy="strict-origin-when-cross-origin"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
         allowFullScreen
       />
+      <button
+        className="youtube-fullscreen-button"
+        type="button"
+        onClick={toggleFullscreen}
+        aria-label={isFullscreen ? 'Salir de pantalla completa' : 'Ver en pantalla completa'}
+        title={isFullscreen ? 'Salir de pantalla completa' : 'Ver en pantalla completa'}
+      >
+        {isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+      </button>
+      {fullscreenError && <p className="youtube-fullscreen-error" role="status">{fullscreenError}</p>}
     </div>;
   }
 
